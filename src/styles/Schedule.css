@@ -1,0 +1,145 @@
+/* src/styles/Schedule.css */
+
+.schedule-section {
+    margin-top: 50px;
+  }
+  
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 30px;
+  }
+  
+  .schedule-day h2 {
+    color: var(--color-purple);
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+  }
+  
+  .lesson-card {
+    background: white;
+    padding: 18px 22px;
+    border-radius: 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.03);
+    border-left: 6px solid var(--color-purple); /* Цвет по умолчанию */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .lesson-card:hover {
+    transform: translateX(8px);
+    box-shadow: 0 8px 25px rgba(15, 45, 77, 0.08);
+  }
+  
+  /* Динамические цвета для типов пар */
+  .lesson-type-ЛК { border-left-color: #2ecc71; } /* Зеленый для лекций */
+  .lesson-type-ПЗ { border-left-color: #f1c40f; } /* Желтый для практик */
+  .lesson-type-ЛР { border-left-color: #e74c3c; } /* Красный для лаб */
+  
+  .lesson-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+  .lesson-time {
+    font-weight: 800;
+    color: var(--color-dark-navy);
+    font-size: 1.1rem;
+  }
+  
+  .lesson-badge {
+    font-size: 12px;
+    background: var(--color-bg-light);
+    padding: 4px 10px;
+    border-radius: 8px;
+    color: var(--text-gray);
+    font-weight: bold;
+  }
+  
+  .lesson-subject {
+    color: var(--color-primary-blue);
+    font-weight: 700;
+    font-size: 1.15rem;
+    margin-bottom: 10px;
+  }
+  
+  .lesson-details {
+    font-size: 13px;
+    color: var(--text-gray);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .lesson-details strong {
+    color: var(--color-dark-navy);
+  }
+  
+  .empty-schedule {
+    padding: 30px;
+    background: white;
+    border-radius: 20px;
+    text-align: center;
+    color: var(--text-gray);
+    border: 2px dashed #cbd5e0;
+    font-weight: 600;
+  }
+
+
+  /* --- КОМПАКТНОЕ РАСПИСАНИЕ НА НЕДЕЛЮ --- */
+.weekly-grid {
+    display: grid;
+    /* Делаем колонки чуть ýже (от 280px), чтобы в ряд влезало по 3 дня (Пн-Ср, Чт-Сб) */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+  }
+  
+  .weekly-day {
+    background: white;
+    padding: 20px;
+    border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+  }
+  
+  .weekly-day h2 {
+    color: var(--color-purple);
+    margin: 0 0 15px 0;
+    font-size: 1.2rem;
+    border-bottom: 2px dashed #f0f2f5;
+    padding-bottom: 10px;
+  }
+  
+  /* Сама пара: уменьшаем отступы и размеры шрифтов */
+  .compact-lesson-card {
+    padding: 12px 14px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    background: var(--color-bg-light);
+    border-left: 4px solid var(--color-purple);
+    transition: transform 0.2s ease;
+  }
+  
+  .compact-lesson-card:hover {
+    transform: translateX(5px);
+  }
+  
+  .compact-lesson-card .lesson-time {
+    font-size: 0.95rem;
+  }
+  
+  .compact-lesson-card .lesson-badge {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+  
+  .compact-lesson-card .lesson-subject {
+    font-size: 1rem;
+    margin: 6px 0;
+  }
+  
+  .compact-lesson-card .lesson-details {
+    font-size: 11px;
+  }

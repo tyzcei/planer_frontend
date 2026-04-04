@@ -7,6 +7,7 @@ interface DecodedToken {
   userId: number;   // ID пользователя
   groupNumber?: string;
   exp: number;      // время истечения
+  
 }
 
 export const getUserData = () => {
@@ -21,7 +22,7 @@ export const getUserData = () => {
       role: decoded.role,
       userId: decoded.userId,
       email: decoded.sub,
-      group: decoded.groupNumber
+      group: decoded.groupNumber // <--- Вот здесь происходит переименование
     };
   } catch (error) {
     console.error("Ошибка декодирования токена:", error);
