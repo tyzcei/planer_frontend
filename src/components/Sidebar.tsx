@@ -11,12 +11,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) 
   const [isCollapsed, setIsCollapsed] = useState(true);
   const user = getUserData();
 
+  // Базовые элементы меню для всех
   const menuItems = [
     { id: 'dashboard', label: 'Главная', icon: '🏠' },
-    { id: 'schedule', label: 'Расписание', icon: '🗓️' }, // НОВАЯ ВКЛАДКА
+    { id: 'schedule', label: 'Расписание', icon: '🗓️' },
     { id: 'labs', label: 'Мои лабы', icon: '📚' },
     { id: 'stats', label: 'Статистика', icon: '📈' },
   ];
+
+  // Динамически добавляем вкладку старосты
+  if (user?.role === 'GROUP_LEADER') {
+    menuItems.push({ id: 'group', label: 'Моя группа', icon: '👥' });
+  }
 
   return (
     <div 
@@ -86,6 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) 
           );
         })}
 
+        {/* Админка остается отдельным блоком, чтобы отделить её визуально полоской */}
         {user?.role === 'ADMIN' && (
           <div 
             onClick={() => setActiveTab('admin')}

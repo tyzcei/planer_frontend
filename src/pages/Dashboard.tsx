@@ -25,7 +25,8 @@ const Dashboard = () => {
       const res = await api.get(`/announcements/${userGroup}`);
       const data = res.data;
 
-      if (data && data.content && !data.content.includes("Объявлений пока нет")) {
+      // ПРОВЕРКА: data.active !== false
+      if (data && data.content && data.active !== false && !data.content.includes("Объявлений пока нет")) {
         const updatedDate = new Date(data.updatedAt || new Date());
         const now = new Date();
         const diffTime = now.getTime() - updatedDate.getTime();
@@ -105,6 +106,17 @@ const Dashboard = () => {
     }
   };
 
+  const handleHideAnnouncement = async () => {
+    if (window.confirm("Убрать это объявление для всей группы?")) {
+      try {
+        await api.patch(`/announcements/${userGroup}/hide`);
+        setAnnouncement(null); // Убираем с экрана моментально
+      } catch (error) {
+        alert("Не удалось скрыть объявление");
+      }
+    }
+  };
+
   const handleStatusToggle = async (labId: number) => {
     try {
       const res = await api.patch(`/labs/${labId}/toggle-status?userId=${userId}`);
@@ -123,7 +135,6 @@ const Dashboard = () => {
 
   // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
-  // НОВОЕ: Функция для красивого форматирования даты
   const formatDateTime = (dateString: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -132,7 +143,7 @@ const Dashboard = () => {
       month: 'long',
       hour: '2-digit',
       minute: '2-digit'
-    }); // Получится: "4 апреля, 15:30"
+    });
   };
 
   const getStatusTheme = (status: string) => {
@@ -189,8 +200,8 @@ const Dashboard = () => {
   return (
     <div className="fade-in" style={{ paddingBottom: '40px' }}>
       
-      {/* --- БЛОК ОБЪЯВЛЕНИЯ ОТ СТАРОСТЫ --- */}
-      {announcement ? (
+      {/* --- БЛОК ОБЪЯВЛЕНИЯ ОТ СТАРОСТЫ (Отображается ТОЛЬКО если оно есть) --- */}
+      {announcement && (
         <div style={{ 
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           padding: '20px 25px', 
@@ -210,7 +221,6 @@ const Dashboard = () => {
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>
                 Сообщение от старосты
               </h3>
-              {/* НОВОЕ: ВЫВОД ДАТЫ И ВРЕМЕНИ */}
               <span style={{ fontSize: '0.8rem', opacity: 0.7, background: 'rgba(0,0,0,0.15)', padding: '2px 8px', borderRadius: '8px' }}>
                 {formatDateTime(announcement.updatedAt)}
               </span>
@@ -221,42 +231,81 @@ const Dashboard = () => {
           </div>
           
           {user?.role === 'GROUP_LEADER' && (
-            <button 
-              onClick={() => {
-                setNewContent(announcement.content);
-                setIsModalOpen(true);
-              }}
-              style={{ 
-                background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', 
-                color: 'white', padding: '8px 15px', borderRadius: '12px', 
-                cursor: 'pointer', fontWeight: 'bold', transition: '0.3s' 
-              }}
-              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
-              onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-            >
-              ✏️ Редактировать
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => {
+                  setNewContent(announcement.content);
+                  setIsModalOpen(true);
+                }}
+                style={{ 
+                  background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', 
+                  color: 'white', padding: '8px 15px', borderRadius: '12px', 
+                  cursor: 'pointer', fontWeight: 'bold', transition: '0.3s' 
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
+                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+              >
+                ✏️ Редактировать
+              </button>
+              
+              <button 
+                onClick={handleHideAnnouncement}
+                style={{ 
+                  background: 'rgba(255, 0, 0, 0.15)', border: '1px solid rgba(255, 100, 100, 0.4)', 
+                  color: '#fca5a5', padding: '8px 15px', borderRadius: '12px', 
+                  cursor: 'pointer', fontWeight: 'bold', transition: '0.3s' 
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 0, 0, 0.3)';
+                  e.currentTarget.style.color = 'white';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 0, 0, 0.15)';
+                  e.currentTarget.style.color = '#fca5a5';
+                }}
+              >
+                ✖ Скрыть
+              </button>
+            </div>
           )}
         </div>
-      ) : (
-        user?.role === 'GROUP_LEADER' && (
-          <div style={{ marginBottom: '35px', textAlign: 'right' }}>
-            <button 
-              onClick={() => {
-                setNewContent("");
-                setIsModalOpen(true);
-              }}
-              style={{ 
-                background: 'var(--color-purple)', color: 'white', border: 'none', 
-                padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', 
-                fontWeight: 'bold', boxShadow: '0 4px 15px rgba(167, 118, 147, 0.3)' 
-              }}
-            >
-              + Создать объявление
-            </button>
-          </div>
-        )
       )}
+
+      {/* --- СЕКЦИЯ 1: ФОКУС (ЛАБЫ) + КНОПКА СОЗДАНИЯ ОБЪЯВЛЕНИЯ --- */}
+      <div style={{ 
+        marginBottom: '40px', 
+        display: 'flex', 
+        justifyContent: 'space-between', // Разносит элементы по краям
+        alignItems: 'center', // Выравнивает их по вертикали
+        flexWrap: 'wrap', 
+        gap: '20px' 
+      }}>
+        <div>
+          <h1 style={{ color: 'var(--primary-blue)', margin: 0 }}>Фокус на сегодня 🎯</h1>
+          <p style={{ color: 'var(--text-gray)', marginTop: '5px' }}>
+            Привет, {(user as any)?.firstName || 'студент'}! Вот твои самые приоритетные задачи.
+          </p>
+        </div>
+
+        {/* Кнопка перенесена сюда и будет видна только если объявления НЕТ */}
+        {!announcement && user?.role === 'GROUP_LEADER' && (
+          <button 
+            onClick={() => {
+              setNewContent("");
+              setIsModalOpen(true);
+            }}
+            style={{ 
+              background: 'var(--color-purple)', color: 'white', border: 'none', 
+              padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', 
+              fontWeight: 'bold', boxShadow: '0 4px 15px rgba(167, 118, 147, 0.3)' 
+            }}
+          >
+            + Создать объявление
+          </button>
+        )}
+      </div>
+      
+      
 
       {/* --- СЕКЦИЯ 1: ФОКУС (ЛАБЫ) --- */}
       <div style={{ marginBottom: '40px' }}>

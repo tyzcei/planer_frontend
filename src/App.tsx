@@ -7,6 +7,7 @@ import AdminPanel from './pages/AdminPanel';
 import Register from './pages/Register'; 
 import ScheduleWeek from './pages/ScheduleWeek';
 import api from './api';
+import GroupManagement from './pages/GroupManagement';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('accessToken'));
@@ -123,6 +124,7 @@ function App() {
         {activeTab === 'schedule' && <ScheduleWeek />} {/* <--- ДОБАВЛЕНО РАСПИСАНИЕ */}
         {activeTab === 'labs' && <Labs />}
         {activeTab === 'admin' && <AdminPanel />}
+        {activeTab === 'group' && <GroupManagement />}
         {activeTab === 'stats' && (
           <div className="lab-card" style={{ background: 'white', padding: '40px' }}>
             <h2 style={{ color: 'var(--color-primary-blue)' }}>Статистика семестра 📈</h2>
