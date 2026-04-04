@@ -5,7 +5,7 @@ import { getUserData } from '../utils/auth';
 
 const Labs = () => {
   const [labs, setLabs] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]); // Снова массив объектов из БД
   const [expandedSubjects, setExpandedSubjects] = useState<Record<number, boolean>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -18,7 +18,7 @@ const Labs = () => {
   const [editingLabId, setEditingLabId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [complexity, setComplexity] = useState(3);
-  const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState(''); // Здесь снова хранится ID предмета
   const [deadline, setDeadline] = useState('');
 
   const fetchData = async () => {
@@ -26,8 +26,13 @@ const Labs = () => {
     try {
       const labRes = await api.get(`/labs/dashboard?userId=${userId}`);
       setLabs(labRes.data);
+      
       const subRes = await api.get(`/subjects/group/${groupNumber}`);
-      setSubjects(subRes.data);
+      console.log("DEBUG: Предметы из БД:", subRes.data); // Посмотри это в консоли браузера (F12)
+      
+      if (subRes.data && subRes.data.length > 0) {
+        setSubjects(subRes.data);
+      }
     } catch (error) {
       console.error("Ошибка загрузки:", error);
     }
@@ -78,9 +83,9 @@ const Labs = () => {
     setSelectedSubject('');
   };
 
-  // Обычное сохранение (только для себя)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Снова отправляем subjectId
     const payload = { title, complexity, deadline, subjectId: selectedSubject, userId };
     try {
       if (editingLabId) {
@@ -93,7 +98,6 @@ const Labs = () => {
     } catch (error) { alert("Ошибка сохранения"); }
   };
 
-  // РАССЫЛКА ВСЕЙ ГРУППЕ (для старосты)
   const handleBroadcastSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !selectedSubject || !deadline) {
@@ -102,7 +106,6 @@ const Labs = () => {
     }
 
     const payload = { title, complexity, deadline, subjectId: selectedSubject, userId };
-    
     if (!window.confirm(`Вы уверены? Лаба "${title}" будет добавлена ВСЕМ студентам группы ${groupNumber}!`)) return;
 
     try {
@@ -131,7 +134,6 @@ const Labs = () => {
 
   return (
     <div className="fade-in" style={{ width: '100%', paddingBottom: '50px' }}>
-      {/* HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
         <div>
           <h1 style={{ color: 'var(--primary-blue)', margin: 0 }}>Учебный план 📖</h1>
@@ -140,10 +142,9 @@ const Labs = () => {
         <button className="add-btn" onClick={() => setIsModalOpen(true)}>+ Новая лаба</button>
       </div>
 
-      {/* SUBJECT SECTIONS (ACCORDION) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         {subjects.map(subject => {
-          const subjectLabs = labs.filter(l => l.subjectTitle === subject.title);
+          const subjectLabs = labs.filter(l => l.subjectTitle === subject.title || l.subjectId === subject.subjectId);
           const isOpen = expandedSubjects[subject.subjectId];
           const completedCount = subjectLabs.filter(l => getStatus(l) === 'PROTECTED').length;
 
@@ -191,7 +192,7 @@ const Labs = () => {
                           margin: 0
                         }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-                            <span style={{ fontSize: '11px', color: 'var(--text-gray)', fontWeight: '800' }}>{lab.subjectTitle}</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-gray)', fontWeight: '800' }}>{subject.title}</span>
                             <div style={{ display: 'flex', gap: '8px' }}>
                                <button onClick={() => handleEditOpen(lab)} style={{ border: 'none', background: 'none', cursor: 'pointer', opacity: 0.5 }}>✏️</button>
                                <button onClick={() => handleDelete(lab.labId)} style={{ border: 'none', background: 'none', cursor: 'pointer', opacity: 0.5 }}>🗑️</button>
@@ -222,14 +223,13 @@ const Labs = () => {
         })}
       </div>
 
-      {/* MODAL WITH BROADCAST OPTION */}
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingLabId ? "Редактировать работу" : "Новая работа"}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <input className="form-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Название (например: Лаба №1)" required />
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
             <select className="form-input" value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)} required>
-              <option value="">Выбери предмет...</option>
+              <option value="" disabled>📚 Выбери предмет...</option>
               {subjects.map(s => <option key={s.subjectId} value={s.subjectId}>{s.title}</option>)}
             </select>
             <input type="datetime-local" className="form-input" value={deadline} onChange={e => setDeadline(e.target.value)} required />
@@ -244,8 +244,6 @@ const Labs = () => {
             <button type="submit" className="add-btn" style={{ width: '100%' }}>
               {editingLabId ? "Сохранить изменения" : "Добавить только себе"}
             </button>
-
-            {/* Кнопка рассылки: только при создании и только для админов/старост */}
             {!editingLabId && isLeader && (
               <button 
                 type="button" 

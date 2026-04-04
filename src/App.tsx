@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './styles/theme.css';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
@@ -8,17 +8,41 @@ import Register from './pages/Register';
 import ScheduleWeek from './pages/ScheduleWeek';
 import api from './api';
 import GroupManagement from './pages/GroupManagement';
+import { getUserData } from './utils/auth';
+import Teachers from './pages/Teachers';
+import Profile from './pages/Profile'; // <--- ДОБАВЛЕНО
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('accessToken'));
-  // Новое состояние: показываем логин или регистрацию?
-  const [isLoginMode, setIsLoginMode] = useState(true); 
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   
+  const [isLoginMode, setIsLoginMode] = useState(true); 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // --- ЛОГИКА ВХОДА ---
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        setIsLoggedIn(false);
+        setIsAuthChecking(false);
+        return;
+      }
+
+      const user = getUserData();
+      if (!user) {
+        localStorage.removeItem('accessToken');
+        setIsLoggedIn(false);
+      } else {
+        setIsLoggedIn(true);
+      }
+      setIsAuthChecking(false);
+    };
+
+    checkAuth();
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -28,6 +52,9 @@ function App() {
       if (token) {
         localStorage.setItem('accessToken', token);
         setIsLoggedIn(true);
+        // Очищаем поля формы после успешного входа
+        setEmail('');
+        setPassword('');
       }
     } catch (error: any) {
       console.error("Login error:", error);
@@ -44,9 +71,15 @@ function App() {
     setActiveTab('dashboard');
   };
 
-  // --- ЭКРАН АВТОРИЗАЦИИ / РЕГИСТРАЦИИ (Если не вошли) ---
+  if (isAuthChecking) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary-blue)', fontWeight: 'bold' }}>
+        Загрузка Semester Passport...
+      </div>
+    );
+  }
+
   if (!isLoggedIn) {
-    // Если пользователь нажал "Зарегистрироваться", показываем компонент Register
     if (!isLoginMode) {
       return (
         <Register 
@@ -56,7 +89,6 @@ function App() {
       );
     }
 
-    // Иначе показываем форму входа
     return (
       <div className="login-screen" style={{ 
         display: 'flex', justifyContent: 'center', alignItems: 'center', 
@@ -68,7 +100,7 @@ function App() {
           boxShadow: '0 20px 50px rgba(0,0,0,0.05)' 
         }}>
           <h1 style={{ color: 'var(--color-dark-navy)', marginBottom: '10px', fontSize: '26px' }}>
-            Semester Passport
+            Semester Passport 🎓
           </h1>
           <p style={{ color: 'var(--text-gray)', marginBottom: '30px', fontSize: '14px' }}>
             Студенческий менеджер задач
@@ -98,7 +130,6 @@ function App() {
             </button>
           </div>
 
-          {/* Кнопка переключения на регистрацию */}
           <p style={{ marginTop: '25px', color: 'var(--text-gray)', fontSize: '14px' }}>
             Нет аккаунта?{' '}
             <span 
@@ -113,18 +144,19 @@ function App() {
     );
   }
 
-  // --- ГЛАВНЫЙ ИНТЕРФЕЙС (После входа) ---
   return (
     <div className="main-layout">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
       <main className="content-area">
         
-        {/* === ВОТ ЗДЕСЬ ПЕРЕКЛЮЧАЮТСЯ ВКЛАДКИ === */}
         {activeTab === 'dashboard' && <Dashboard />}
-        {activeTab === 'schedule' && <ScheduleWeek />} {/* <--- ДОБАВЛЕНО РАСПИСАНИЕ */}
+        {activeTab === 'schedule' && <ScheduleWeek />}
         {activeTab === 'labs' && <Labs />}
+        {activeTab === 'teachers' && <Teachers />}
+        {activeTab === 'profile' && <Profile />} {/* <--- ДОБАВЛЕНО */}
         {activeTab === 'admin' && <AdminPanel />}
         {activeTab === 'group' && <GroupManagement />}
+        
         {activeTab === 'stats' && (
           <div className="lab-card" style={{ background: 'white', padding: '40px' }}>
             <h2 style={{ color: 'var(--color-primary-blue)' }}>Статистика семестра 📈</h2>

@@ -11,10 +11,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) 
   const [isCollapsed, setIsCollapsed] = useState(true);
   const user = getUserData();
 
-  // Базовые элементы меню для всех
+  // Основные разделы
   const menuItems = [
     { id: 'dashboard', label: 'Главная', icon: '🏠' },
     { id: 'schedule', label: 'Расписание', icon: '🗓️' },
+    { id: 'teachers', label: 'Преподаватели', icon: '👨‍🏫' },
     { id: 'labs', label: 'Мои лабы', icon: '📚' },
     { id: 'stats', label: 'Статистика', icon: '📈' },
   ];
@@ -24,8 +25,25 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) 
     menuItems.push({ id: 'group', label: 'Моя группа', icon: '👥' });
   }
 
+  // Общий стиль для элементов навигации
+  const getItemStyle = (id: string) => {
+    const isActive = activeTab === id;
+    return {
+      padding: '15px',
+      borderRadius: '12px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '15px',
+      background: isActive ? 'var(--color-purple)' : 'transparent',
+      color: isActive ? 'white' : 'rgba(255,255,255,0.7)',
+      transition: 'all 0.2s ease',
+      marginBottom: '5px',
+    };
+  };
+
   return (
-    <div 
+    <div
       className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}
       onMouseEnter={() => setIsCollapsed(false)}
       onMouseLeave={() => setIsCollapsed(true)}
@@ -38,76 +56,58 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) 
         display: 'flex',
         flexDirection: 'column',
         zIndex: 1000,
-        boxShadow: '4px 0 15px rgba(15, 45, 77, 0.1)'
+        boxShadow: '4px 0 15px rgba(15, 45, 77, 0.1)',
+        height: '100vh',
       }}
     >
-      <div style={{ 
-        padding: '30px 25px', 
-        fontSize: '22px', 
+      {/* Logo */}
+      <div style={{
+        padding: '30px 25px',
+        fontSize: '22px',
         fontWeight: 'bold',
         textAlign: isCollapsed ? 'center' : 'left',
-        color: 'var(--color-sand)', 
+        color: 'var(--color-sand)',
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         whiteSpace: 'nowrap'
       }}>
         {isCollapsed ? '🎓' : 'PassPort 🎓'}
       </div>
 
+      {/* Main Navigation */}
       <nav style={{ flex: 1, padding: '20px 10px' }}>
-        {menuItems.map(item => {
-          const isActive = activeTab === item.id;
-          return (
-            <div 
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              style={{
-                padding: '15px', 
-                borderRadius: '12px', 
-                cursor: 'pointer',
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '15px',
-                background: isActive ? 'var(--color-purple)' : 'transparent',
-                color: isActive ? 'white' : 'rgba(255,255,255,0.7)',
-                transition: 'all 0.2s ease',
-                marginBottom: '5px'
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.background = 'transparent';
-              }}
-            >
-              <span style={{ fontSize: '20px' }}>{item.icon}</span>
-              <span style={{ 
-                opacity: isCollapsed ? 0 : 1, 
-                transition: 'opacity 0.3s ease',
-                whiteSpace: 'nowrap',
-                fontWeight: isActive ? '600' : 'normal'
-              }}>
-                {item.label}
-              </span>
-            </div>
-          );
-        })}
+        {menuItems.map(item => (
+          <div
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            style={getItemStyle(item.id)}
+            onMouseEnter={(e) => {
+              if (activeTab !== item.id) e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== item.id) e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>{item.icon}</span>
+            <span style={{
+              opacity: isCollapsed ? 0 : 1,
+              transition: 'opacity 0.3s ease',
+              whiteSpace: 'nowrap',
+              fontWeight: activeTab === item.id ? '600' : 'normal'
+            }}>
+              {item.label}
+            </span>
+          </div>
+        ))}
 
-        {/* Админка остается отдельным блоком, чтобы отделить её визуально полоской */}
+        {/* Admin Section */}
         {user?.role === 'ADMIN' && (
-          <div 
+          <div
             onClick={() => setActiveTab('admin')}
             style={{
-              padding: '15px', 
-              borderRadius: '12px', 
-              cursor: 'pointer',
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '15px',
-              background: activeTab === 'admin' ? 'var(--color-purple)' : 'transparent',
-              color: activeTab === 'admin' ? 'white' : 'rgba(255,255,255,0.7)',
-              transition: 'all 0.2s',
+              ...getItemStyle('admin'),
               marginTop: '15px',
-              borderTop: '1px solid rgba(255,255,255,0.1)' 
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+              paddingTop: '20px'
             }}
           >
             <span style={{ fontSize: '20px' }}>⚙️</span>
@@ -116,23 +116,51 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) 
         )}
       </nav>
 
-      <div 
-        onClick={onLogout} 
-        style={{ 
-          padding: '25px', 
-          cursor: 'pointer', 
-          color: 'var(--color-sand)',
-          display: 'flex', 
-          alignItems: 'center',
-          gap: '15px',
-          borderTop: '1px solid rgba(255,255,255,0.05)',
-          transition: '0.2s'
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.color = '#ff4d4f'}
-        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-sand)'}
-      >
-        <span style={{ fontSize: '20px' }}>🚪</span>
-        <span style={{ opacity: isCollapsed ? 0 : 1, transition: '0.3s', whiteSpace: 'nowrap' }}>Выйти</span>
+      {/* Bottom Section: Profile & Logout */}
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '10px' }}>
+        
+        {/* Profile Link */}
+        <div
+          onClick={() => setActiveTab('profile')}
+          style={getItemStyle('profile')}
+          onMouseEnter={(e) => {
+            if (activeTab !== 'profile') e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+          }}
+          onMouseLeave={(e) => {
+            if (activeTab !== 'profile') e.currentTarget.style.background = 'transparent';
+          }}
+        >
+          <span style={{ fontSize: '20px' }}>👤</span>
+          <span style={{ 
+            opacity: isCollapsed ? 0 : 1, 
+            transition: 'opacity 0.3s ease', 
+            whiteSpace: 'nowrap' 
+          }}>Профиль</span>
+        </div>
+
+        {/* Logout */}
+        <div
+          onClick={onLogout}
+          style={{
+            padding: '15px',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '15px',
+            color: 'var(--color-sand)',
+            transition: '0.2s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.color = '#ff4d4f'}
+          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-sand)'}
+        >
+          <span style={{ fontSize: '20px' }}>🚪</span>
+          <span style={{ 
+            opacity: isCollapsed ? 0 : 1, 
+            transition: 'opacity 0.3s ease', 
+            whiteSpace: 'nowrap' 
+          }}>Выйти</span>
+        </div>
       </div>
     </div>
   );
