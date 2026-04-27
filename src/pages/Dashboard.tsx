@@ -308,12 +308,7 @@ const Dashboard = () => {
       
 
       {/* --- СЕКЦИЯ 1: ФОКУС (ЛАБЫ) --- */}
-      <div style={{ marginBottom: '40px' }}>
-        <h1 style={{ color: 'var(--primary-blue)', margin: 0 }}>Фокус на сегодня 🎯</h1>
-        <p style={{ color: 'var(--text-gray)', marginTop: '5px' }}>
-          Привет, {(user as any)?.firstName || 'студент'}! Вот твои самые приоритетные задачи.
-        </p>
-      </div>
+      
       
       <div className="dashboard-grid">
         {urgentLabs.length > 0 ? (
