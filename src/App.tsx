@@ -10,7 +10,8 @@ import api from './api';
 import GroupManagement from './pages/GroupManagement';
 import { getUserData } from './utils/auth';
 import Teachers from './pages/Teachers';
-import Profile from './pages/Profile'; // <--- ДОБАВЛЕНО
+import Profile from './pages/Profile'; 
+import Stats from './pages/Stats';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -156,13 +157,8 @@ function App() {
         {activeTab === 'profile' && <Profile />} {/* <--- ДОБАВЛЕНО */}
         {activeTab === 'admin' && <AdminPanel />}
         {activeTab === 'group' && <GroupManagement />}
-        
-        {activeTab === 'stats' && (
-          <div className="lab-card" style={{ background: 'white', padding: '40px' }}>
-            <h2 style={{ color: 'var(--color-primary-blue)' }}>Статистика семестра 📈</h2>
-            <p style={{ color: 'var(--text-gray)' }}>Здесь скоро появятся графики успеваемости.</p>
-          </div>
-        )}
+        {activeTab === 'stats' && <Stats />
+        }
         
       </main>
     </div>
