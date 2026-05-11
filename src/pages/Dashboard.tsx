@@ -5,9 +5,16 @@ import '../styles/Schedule.css';
 
 const Dashboard = () => {
   const [urgentLabs, setUrgentLabs] = useState<any[]>([]);
-  const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
-  const [tomorrowSchedule, setTomorrowSchedule] = useState<any[]>([]);
+  
+  // Храним СЫРЫЕ данные расписания на сегодня и завтра
+  const [rawTodaySchedule, setRawTodaySchedule] = useState<any[]>([]);
+  const [rawTomorrowSchedule, setRawTomorrowSchedule] = useState<any[]>([]);
+  
   const [isScheduleLoading, setIsScheduleLoading] = useState(false);
+  
+  // Состояния для фильтрации расписания
+  const [currentWeekNum, setCurrentWeekNum] = useState<number | null>(null);
+  const [activeSubgroup, setActiveSubgroup] = useState<'all' | 1 | 2>('all');
   
   const [announcement, setAnnouncement] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -25,7 +32,6 @@ const Dashboard = () => {
       const res = await api.get(`/announcements/${userGroup}`);
       const data = res.data;
 
-      // ПРОВЕРКА: data.active !== false
       if (data && data.content && data.active !== false && !data.content.includes("Объявлений пока нет")) {
         const updatedDate = new Date(data.updatedAt || new Date());
         const now = new Date();
@@ -64,8 +70,18 @@ const Dashboard = () => {
     if (!userGroup) return;
     setIsScheduleLoading(true);
     try {
-      const response = await fetch(`https://iis.bsuir.by/api/v1/schedule?studentGroup=${userGroup}`);
-      const data = await response.json();
+      const [scheduleRes, weekRes] = await Promise.all([
+        fetch(`https://iis.bsuir.by/api/v1/schedule?studentGroup=${userGroup}`),
+        fetch(`https://iis.bsuir.by/api/v1/schedule/current-week`)
+      ]);
+      
+      const data = await scheduleRes.json();
+      const currentWeekText = await weekRes.text();
+      const weekNum = parseInt(currentWeekText, 10);
+      
+      if (!isNaN(weekNum)) {
+        setCurrentWeekNum(weekNum);
+      }
 
       const daysMap = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
       const today = new Date();
@@ -77,8 +93,10 @@ const Dashboard = () => {
       const tomorrowStr = daysMap[tomorrowIdx];
 
       const allSchedules = data.schedules || {};
-      setTodaySchedule(allSchedules[todayStr] || []);
-      setTomorrowSchedule(allSchedules[tomorrowStr] || []);
+
+      // Сохраняем сырые нефильтрованные данные
+      setRawTodaySchedule(allSchedules[todayStr] || []);
+      setRawTomorrowSchedule(allSchedules[tomorrowStr] || []);
       
     } catch (error) {
       console.error("Ошибка загрузки расписания БГУИР", error);
@@ -92,6 +110,42 @@ const Dashboard = () => {
     fetchSchedule(); 
     fetchAnnouncement(); 
   }, [userId, userGroup]);
+
+  // --- ЛОГИКА ФИЛЬТРАЦИИ И СКЛЕИВАНИЯ ---
+  
+  const processLessons = (lessons: any[]) => {
+    if (!lessons) return [];
+    
+    // 1. Фильтр по неделе и выбранной подгруппе
+    const filtered = lessons.filter((lesson: any) => {
+      const weekMatch = currentWeekNum === null || !lesson.weekNumber || lesson.weekNumber.includes(currentWeekNum);
+      const subgroupMatch = activeSubgroup === 'all' || lesson.numSubgroup === 0 || lesson.numSubgroup === activeSubgroup;
+      return weekMatch && subgroupMatch;
+    });
+    
+    // 2. Склеиваем дубликаты
+    const unique: any[] = [];
+    filtered.forEach((lesson: any) => {
+      const duplicate = unique.find(l => 
+        l.startLessonTime === lesson.startLessonTime && 
+        l.subject === lesson.subject &&
+        l.lessonTypeAbbrev === lesson.lessonTypeAbbrev
+      );
+
+      if (duplicate) {
+        if (duplicate.numSubgroup !== lesson.numSubgroup && duplicate.numSubgroup !== 0) {
+          duplicate.isMerged = true;
+        }
+      } else {
+        unique.push({ ...lesson });
+      }
+    });
+    return unique;
+  };
+
+  // Применяем фильтр "на лету" (чтобы при переключении подгруппы данные обновлялись)
+  const processedToday = processLessons(rawTodaySchedule);
+  const processedTomorrow = processLessons(rawTomorrowSchedule);
 
   // --- ОБРАБОТЧИКИ ДЕЙСТВИЙ ---
 
@@ -110,7 +164,7 @@ const Dashboard = () => {
     if (window.confirm("Убрать это объявление для всей группы?")) {
       try {
         await api.patch(`/announcements/${userGroup}/hide`);
-        setAnnouncement(null); // Убираем с экрана моментально
+        setAnnouncement(null); 
       } catch (error) {
         alert("Не удалось скрыть объявление");
       }
@@ -164,6 +218,17 @@ const Dashboard = () => {
     return `${employee.lastName} ${employee.firstName?.[0] || ''}.${employee.middleName?.[0] || ''}.`;
   };
 
+  const getSubgroupBtnStyle = (isActive: boolean) => ({
+    padding: '6px 12px',
+    borderRadius: '10px',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    transition: '0.2s',
+    background: isActive ? 'var(--color-purple)' : 'transparent',
+    color: isActive ? 'white' : 'var(--text-gray)'
+  });
+
   const renderScheduleColumn = (title: string, lessons: any[]) => (
     <div className="schedule-day">
       <h2>{title}</h2>
@@ -177,9 +242,11 @@ const Dashboard = () => {
             <div className="lesson-header">
               <span className="lesson-time">{lesson.startLessonTime} - {lesson.endLessonTime}</span>
               <div style={{ display: 'flex', gap: '8px' }}>
-                {lesson.numSubgroup !== 0 && (
+                {lesson.isMerged ? (
+                  <span className="lesson-badge" style={{ background: '#e2e8f0' }}>1, 2 подгр.</span>
+                ) : lesson.numSubgroup !== 0 ? (
                   <span className="lesson-badge" style={{ background: '#e2e8f0' }}>{lesson.numSubgroup} подгр.</span>
-                )}
+                ) : null}
                 <span className="lesson-badge">{lesson.lessonTypeAbbrev}</span>
               </div>
             </div>
@@ -200,7 +267,6 @@ const Dashboard = () => {
   return (
     <div className="fade-in" style={{ paddingBottom: '40px' }}>
       
-      {/* --- БЛОК ОБЪЯВЛЕНИЯ ОТ СТАРОСТЫ (Отображается ТОЛЬКО если оно есть) --- */}
       {announcement && (
         <div style={{ 
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -218,51 +284,29 @@ const Dashboard = () => {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '5px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>
-                Сообщение от старосты
-              </h3>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '800' }}>Сообщение от старосты</h3>
               <span style={{ fontSize: '0.8rem', opacity: 0.7, background: 'rgba(0,0,0,0.15)', padding: '2px 8px', borderRadius: '8px' }}>
                 {formatDateTime(announcement.updatedAt)}
               </span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.95rem', opacity: 0.95 }}>
-              {announcement.content}
-            </p>
+            <p style={{ margin: 0, fontSize: '0.95rem', opacity: 0.95 }}>{announcement.content}</p>
           </div>
           
           {user?.role === 'GROUP_LEADER' && (
             <div style={{ display: 'flex', gap: '10px' }}>
               <button 
-                onClick={() => {
-                  setNewContent(announcement.content);
-                  setIsModalOpen(true);
-                }}
-                style={{ 
-                  background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', 
-                  color: 'white', padding: '8px 15px', borderRadius: '12px', 
-                  cursor: 'pointer', fontWeight: 'bold', transition: '0.3s' 
-                }}
+                onClick={() => { setNewContent(announcement.content); setIsModalOpen(true); }}
+                style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', color: 'white', padding: '8px 15px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', transition: '0.3s' }}
                 onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
                 onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
               >
                 ✏️ Редактировать
               </button>
-              
               <button 
                 onClick={handleHideAnnouncement}
-                style={{ 
-                  background: 'rgba(255, 0, 0, 0.15)', border: '1px solid rgba(255, 100, 100, 0.4)', 
-                  color: '#fca5a5', padding: '8px 15px', borderRadius: '12px', 
-                  cursor: 'pointer', fontWeight: 'bold', transition: '0.3s' 
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 0, 0, 0.3)';
-                  e.currentTarget.style.color = 'white';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 0, 0, 0.15)';
-                  e.currentTarget.style.color = '#fca5a5';
-                }}
+                style={{ background: 'rgba(255, 0, 0, 0.15)', border: '1px solid rgba(255, 100, 100, 0.4)', color: '#fca5a5', padding: '8px 15px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', transition: '0.3s' }}
+                onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255, 0, 0, 0.3)'; e.currentTarget.style.color = 'white'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255, 0, 0, 0.15)'; e.currentTarget.style.color = '#fca5a5'; }}
               >
                 ✖ Скрыть
               </button>
@@ -271,15 +315,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* --- СЕКЦИЯ 1: ФОКУС (ЛАБЫ) + КНОПКА СОЗДАНИЯ ОБЪЯВЛЕНИЯ --- */}
-      <div style={{ 
-        marginBottom: '40px', 
-        display: 'flex', 
-        justifyContent: 'space-between', // Разносит элементы по краям
-        alignItems: 'center', // Выравнивает их по вертикали
-        flexWrap: 'wrap', 
-        gap: '20px' 
-      }}>
+      <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
         <div>
           <h1 style={{ color: 'var(--primary-blue)', margin: 0 }}>Фокус на сегодня 🎯</h1>
           <p style={{ color: 'var(--text-gray)', marginTop: '5px' }}>
@@ -287,28 +323,15 @@ const Dashboard = () => {
           </p>
         </div>
 
-        {/* Кнопка перенесена сюда и будет видна только если объявления НЕТ */}
         {!announcement && user?.role === 'GROUP_LEADER' && (
           <button 
-            onClick={() => {
-              setNewContent("");
-              setIsModalOpen(true);
-            }}
-            style={{ 
-              background: 'var(--color-purple)', color: 'white', border: 'none', 
-              padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', 
-              fontWeight: 'bold', boxShadow: '0 4px 15px rgba(167, 118, 147, 0.3)' 
-            }}
+            onClick={() => { setNewContent(""); setIsModalOpen(true); }}
+            style={{ background: 'var(--color-purple)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 15px rgba(167, 118, 147, 0.3)' }}
           >
             + Создать объявление
           </button>
         )}
       </div>
-      
-      
-
-      {/* --- СЕКЦИЯ 1: ФОКУС (ЛАБЫ) --- */}
-      
       
       <div className="dashboard-grid">
         {urgentLabs.length > 0 ? (
@@ -317,29 +340,15 @@ const Dashboard = () => {
             const isHighPriority = (lab.priorityScore || 0) > 7;
 
             return (
-              <div key={lab.labId} className="lab-card" style={{ 
-                background: theme.bg, 
-                borderLeft: `8px solid ${isHighPriority ? 'var(--error-red)' : theme.btn}`,
-                position: 'relative'
-              }}>
+              <div key={lab.labId} className="lab-card" style={{ background: theme.bg, borderLeft: `8px solid ${isHighPriority ? 'var(--error-red)' : theme.btn}`, position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-gray)', fontWeight: '800' }}>
-                    {lab.subjectTitle}
-                  </span>
-                  <button onClick={() => handleDelete(lab.labId)} style={{ border: 'none', background: 'none', cursor: 'pointer', opacity: 0.3 }}>
-                    🗑️
-                  </button>
+                  <span style={{ fontSize: '11px', color: 'var(--text-gray)', fontWeight: '800' }}>{lab.subjectTitle}</span>
+                  <button onClick={() => handleDelete(lab.labId)} style={{ border: 'none', background: 'none', cursor: 'pointer', opacity: 0.3 }}>🗑️</button>
                 </div>
-                <h3 style={{ margin: '0 0 20px 0', color: 'var(--primary-blue)', fontSize: '1.2rem' }}>
-                  {lab.title}
-                </h3>
+                <h3 style={{ margin: '0 0 20px 0', color: 'var(--primary-blue)', fontSize: '1.2rem' }}>{lab.title}</h3>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <button className="status-badge" onClick={() => handleStatusToggle(lab.labId)} style={{ background: theme.btn, color: 'white', border: 'none' }}>
-                    {getStatus(lab)}
-                  </button>
-                  <div style={{ fontWeight: 'bold', fontSize: '14px', color: isHighPriority ? 'var(--error-red)' : 'inherit' }}>
-                    P: {lab.priorityScore?.toFixed(1)}
-                  </div>
+                  <button className="status-badge" onClick={() => handleStatusToggle(lab.labId)} style={{ background: theme.btn, color: 'white', border: 'none' }}>{getStatus(lab)}</button>
+                  <div style={{ fontWeight: 'bold', fontSize: '14px', color: isHighPriority ? 'var(--error-red)' : 'inherit' }}>P: {lab.priorityScore?.toFixed(1)}</div>
                 </div>
               </div>
             );
@@ -351,20 +360,35 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* --- СЕКЦИЯ 2: РАСПИСАНИЕ БГУИР --- */}
       {userGroup && (
         <div className="schedule-section">
-          <h1 style={{ color: 'var(--primary-blue)', margin: '0 0 5px 0' }}>Расписание ({userGroup}) 🗓️</h1>
-          <p style={{ color: 'var(--text-gray)', marginBottom: '25px' }}>Твои пары на сегодня и завтра.</p>
+          {/* ИСПРАВЛЕННЫЙ БЛОК: Заголовок и кнопки выбора подгруппы теперь корректно закрыты */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '25px' }}>
+            <div>
+              <h1 style={{ color: 'var(--primary-blue)', margin: '0 0 5px 0' }}>Расписание ({userGroup}) 🗓️</h1>
+              <p style={{ color: 'var(--text-gray)', margin: 0 }}>Твои пары на сегодня и завтра.</p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px', background: 'rgba(255,255,255,0.8)', padding: '5px', borderRadius: '16px', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
+              <button style={getSubgroupBtnStyle(activeSubgroup === 'all')} onClick={() => setActiveSubgroup('all')}>
+                Вся группа
+              </button>
+              <button style={getSubgroupBtnStyle(activeSubgroup === 1)} onClick={() => setActiveSubgroup(1)}>
+                1 подгруппа
+              </button>
+              <button style={getSubgroupBtnStyle(activeSubgroup === 2)} onClick={() => setActiveSubgroup(2)}>
+                2 подгруппа
+              </button>
+            </div>
+          </div> {/* <-- Вот этот div потерялся в прошлый раз! */}
           
           <div className="schedule-grid">
-            {renderScheduleColumn('Сегодня', todaySchedule)}
-            {renderScheduleColumn('Завтра', tomorrowSchedule)}
+            {renderScheduleColumn('Сегодня', processedToday)}
+            {renderScheduleColumn('Завтра', processedTomorrow)}
           </div>
         </div>
       )}
 
-      {/* --- МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ ОБЪЯВЛЕНИЯ --- */}
       {isModalOpen && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
@@ -392,19 +416,13 @@ const Dashboard = () => {
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
               <button 
                 onClick={handleSaveAnnouncement}
-                style={{ 
-                  flex: 1, background: 'var(--color-primary-blue)', color: 'white',
-                  border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer'
-                }}
+                style={{ flex: 1, background: 'var(--color-primary-blue)', color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
               >
                 Сохранить
               </button>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                style={{ 
-                  flex: 1, background: '#f1f5f9', color: 'var(--text-gray)',
-                  border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer'
-                }}
+                style={{ flex: 1, background: '#f1f5f9', color: 'var(--text-gray)', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
               >
                 Отмена
               </button>

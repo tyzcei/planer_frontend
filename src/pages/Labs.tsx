@@ -5,7 +5,7 @@ import { getUserData } from '../utils/auth';
 
 const Labs = () => {
   const [labs, setLabs] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]); // Снова массив объектов из БД
+  const [subjects, setSubjects] = useState<any[]>([]); 
   const [expandedSubjects, setExpandedSubjects] = useState<Record<number, boolean>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -18,7 +18,7 @@ const Labs = () => {
   const [editingLabId, setEditingLabId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [complexity, setComplexity] = useState(3);
-  const [selectedSubject, setSelectedSubject] = useState(''); // Здесь снова хранится ID предмета
+  const [selectedSubject, setSelectedSubject] = useState(''); 
   const [deadline, setDeadline] = useState('');
 
   const fetchData = async () => {
@@ -28,7 +28,6 @@ const Labs = () => {
       setLabs(labRes.data);
       
       const subRes = await api.get(`/subjects/group/${groupNumber}`);
-      console.log("DEBUG: Предметы из БД:", subRes.data); // Посмотри это в консоли браузера (F12)
       
       if (subRes.data && subRes.data.length > 0) {
         setSubjects(subRes.data);
@@ -85,7 +84,6 @@ const Labs = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Снова отправляем subjectId
     const payload = { title, complexity, deadline, subjectId: selectedSubject, userId };
     try {
       if (editingLabId) {
@@ -181,15 +179,28 @@ const Labs = () => {
                   gap: '20px', animation: 'slideDown 0.3s ease-out'
                 }}>
                   {subjectLabs.length > 0 ? (
-                    subjectLabs.sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0)).map(lab => {
+                    subjectLabs.sort((a, b) => {
+                      // НОВАЯ ЛОГИКА СОРТИРОВКИ: Сначала проверяем, защищена ли лаба
+                      const isADone = getStatus(a) === 'PROTECTED';
+                      const isBDone = getStatus(b) === 'PROTECTED';
+                      
+                      if (isADone && !isBDone) return 1;  // 'a' защищена, 'b' нет -> спускаем 'a' вниз
+                      if (!isADone && isBDone) return -1; // 'a' не защищена, 'b' да -> поднимаем 'a' наверх
+                      
+                      // Если статусы одинаковые, сортируем по приоритету
+                      return (b.priorityScore || 0) - (a.priorityScore || 0);
+                    }).map(lab => {
                       const isDone = getStatus(lab) === 'PROTECTED';
                       const theme = getStatusTheme(getStatus(lab));
+                      
                       return (
                         <div key={lab.labId} className="lab-card" style={{ 
-                          background: isDone ? 'var(--status-protected-bg)' : theme.bg, 
-                          opacity: isDone ? 0.7 : 1,
-                          borderLeft: `8px solid ${lab.priorityScore > 7 ? 'var(--error-red)' : theme.btn}`,
-                          margin: 0
+                          background: isDone ? '#f8fafc' : theme.bg, // Серый фон для готовых
+                          opacity: isDone ? 0.6 : 1, // Сильно тусклее
+                          filter: isDone ? 'grayscale(80%)' : 'none', // Эффект обесцвечивания
+                          borderLeft: `8px solid ${isDone ? '#cbd5e1' : (lab.priorityScore > 7 ? 'var(--error-red)' : theme.btn)}`,
+                          margin: 0,
+                          transition: '0.3s'
                         }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
                             <span style={{ fontSize: '11px', color: 'var(--text-gray)', fontWeight: '800' }}>{subject.title}</span>
@@ -199,11 +210,12 @@ const Labs = () => {
                             </div>
                           </div>
                           <h3 style={{ 
-                            margin: '0 0 15px 0', color: 'var(--primary-blue)',
-                            textDecoration: isDone ? 'line-through' : 'none' 
+                            margin: '0 0 15px 0', 
+                            color: isDone ? 'var(--text-gray)' : 'var(--primary-blue)',
+                            textDecoration: isDone ? 'line-through' : 'none' // Зачеркивание
                           }}>{lab.title}</h3>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <button className="status-badge" onClick={() => handleStatusToggle(lab.labId)} style={{ background: theme.btn, color: 'white' }}>
+                            <button className="status-badge" onClick={() => handleStatusToggle(lab.labId)} style={{ background: isDone ? '#94a3b8' : theme.btn, color: 'white' }}>
                               {getStatus(lab)}
                             </button>
                             {!isDone && <div style={{ fontWeight: 'bold', fontSize: '13px' }}>P: {lab.priorityScore?.toFixed(1)}</div>}
