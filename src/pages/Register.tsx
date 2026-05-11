@@ -46,7 +46,6 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
     e.preventDefault();
     setError('');
 
-    // Небольшая проверка, чтобы юзер не ввел случайные буквы вместо группы
     if (!bsuirGroups.includes(formData.groupNumber) && bsuirGroups.length > 0) {
       setError('Пожалуйста, выберите существующую группу из списка.');
       return;
@@ -87,7 +86,6 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
           <input name="email" type="email" className="form-input" placeholder="Учебный Email" value={formData.email} onChange={handleChange} required />
           <input name="password" type="password" className="form-input" placeholder="Пароль" value={formData.password} onChange={handleChange} required minLength={6} />
           
-          {/* УМНЫЙ ПОИСК ГРУППЫ */}
           <div style={{ position: 'relative' }}>
             <input 
               name="groupNumber" 
@@ -110,6 +108,27 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onSwitchToLogin 
           <button type="submit" className="add-btn" style={{ marginTop: '15px', padding: '16px', fontSize: '16px' }}>
             Зарегистрироваться
           </button>
+
+          {/* НОВЫЙ КОД: Кнопка регистрации через GitHub */}
+          <div style={{ margin: '5px 0', color: 'var(--text-gray)', fontSize: '14px', position: 'relative', textAlign: 'center' }}>
+            <div style={{ borderTop: '1px solid #e2e8f0', position: 'absolute', top: '50%', width: '100%', zIndex: 1 }}></div>
+            <span style={{ background: 'white', padding: '0 10px', position: 'relative', zIndex: 2 }}>ИЛИ</span>
+          </div>
+
+          <a 
+            href="http://localhost:8080/oauth2/authorization/github" 
+            style={{ 
+              display: 'block', width: '100%', padding: '16px', borderRadius: '12px', 
+              background: '#24292e', color: 'white', textDecoration: 'none', 
+              fontWeight: 'bold', fontSize: '16px', transition: '0.2s', textAlign: 'center', boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#1b1f23'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#24292e'}
+          >
+            🐙 Войти через GitHub
+          </a>
+          {/* =========================================== */}
+
         </form>
 
         <p style={{ textAlign: 'center', marginTop: '25px', color: 'var(--text-gray)', fontSize: '15px' }}>
